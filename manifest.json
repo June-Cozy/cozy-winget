@@ -9472,10 +9472,10 @@
   "version": "1.13.3"
  },
  "Bostrot.WSLManager": {
-  "installerType": "zip",
+  "installerType": "inno",
   "releaseDate": "2026-04-03",
   "scope": "machine",
-  "version": "1.11.0"
+  "version": "1.11.0.0"
  },
  "Bosyun.BoardMix": {
   "installerType": "nullsoft",
@@ -29581,13 +29581,10 @@
   "version": "0.2.5"
  },
  "Intermedia.Unite": {
-  "installerType": "nullsoft",
-  "releaseDate": "2026-07-28",
-  "scope": [
-   "machine",
-   "user"
-  ],
-  "version": "2.32.60"
+  "installerType": "wix",
+  "releaseDate": null,
+  "scope": "machine",
+  "version": "2.32.60.0"
  },
  "Intermedia.UniteTeamsDesktopPlugin": {
   "installerType": [
@@ -38878,8 +38875,8 @@
  "Mickem.NSClient": {
   "installerType": "wix",
   "releaseDate": "2026-07-06",
-  "scope": "machine",
-  "version": "0.14.1"
+  "scope": null,
+  "version": "0.14.1.0"
  },
  "MicrInc.Micr": {
   "installerType": "nullsoft",
@@ -54071,9 +54068,9 @@
  },
  "Psenix.OverlayTimer": {
   "installerType": "exe",
-  "releaseDate": "2022-07-29",
+  "releaseDate": null,
   "scope": null,
-  "version": "1.0"
+  "version": "1.0.0.0"
  },
  "Psi.Psi": {
   "installerType": "nullsoft",
