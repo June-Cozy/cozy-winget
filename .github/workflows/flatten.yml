@@ -37,17 +37,17 @@ jobs:
         run: |
           python cozy-winget/scripts/flatten_manifests.py \
             winget-pkgs/manifests \
-            -o cozy-winget/manifest.json
+            -o cozy-winget/manifest.jsonl
 
       - name: commit and push if changed
         working-directory: cozy-winget
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
+          git add manifest.jsonl
           if git diff --cached --quiet; then
             echo "no changes"
             exit 0
           fi
-          git commit -m "chore: refresh manifest.json ($(date -u +%Y-%m-%d))"
+          git commit -m "chore: refresh manifest.jsonl ($(date -u +%Y-%m-%d))"
           git push
