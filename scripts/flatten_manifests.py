@@ -37,38 +37,36 @@ def _load_yaml(path):
         return None
 
 
-def _extract_scope_and_type(installer_doc):
+def _collapse(values):
+    if not values:
+        return None
+    if len(values) == 1:
+        return next(iter(values))
+    return sorted(values)
+
+
+def _extract_field(installer_doc, field):
     if not installer_doc:
-        return None, None
-    top_scope = installer_doc.get("Scope")
-    top_type = installer_doc.get("InstallerType")
+        return None
+    top_value = installer_doc.get(field)
     installers = installer_doc.get("Installers") or []
-    scopes = set()
-    types = set()
+    values = set()
     for entry in installers:
         if not isinstance(entry, dict):
             continue
-        s = entry.get("Scope", top_scope)
-        t = entry.get("InstallerType", top_type)
-        if s:
-            scopes.add(s)
-        if t:
-            types.add(t)
-    if not scopes and top_scope:
-        scopes.add(top_scope)
-    if not types and top_type:
-        types.add(top_type)
-    scope = None
-    if len(scopes) == 1:
-        scope = next(iter(scopes))
-    elif len(scopes) > 1:
-        scope = sorted(scopes)
-    installer_type = None
-    if len(types) == 1:
-        installer_type = next(iter(types))
-    elif len(types) > 1:
-        installer_type = sorted(types)
-    return scope, installer_type
+        v = entry.get(field, top_value)
+        if v:
+            values.add(v)
+    if not values and top_value:
+        values.add(top_value)
+    return _collapse(values)
+
+
+def _extract_fields(installer_doc):
+    scope = _extract_field(installer_doc, "Scope")
+    installer_type = _extract_field(installer_doc, "InstallerType")
+    elevation = _extract_field(installer_doc, "ElevationRequirement")
+    return scope, installer_type, elevation
 
 
 def collect_installer_files(manifests_root):
@@ -91,7 +89,7 @@ def flatten(manifests_root):
         if not package_id or package_version is None:
             continue
         package_version = str(package_version)
-        scope, installer_type = _extract_scope_and_type(doc)
+        scope, installer_type, elevation = _extract_fields(doc)
         release_date = doc.get("ReleaseDate")
         if release_date is not None:
             release_date = str(release_date)
@@ -104,6 +102,7 @@ def flatten(manifests_root):
                 "version": package_version,
                 "scope": scope,
                 "installerType": installer_type,
+                "elevationRequirement": elevation,
                 "releaseDate": release_date,
             }
         if total % 5000 == 0:
@@ -115,6 +114,7 @@ def flatten(manifests_root):
             "version": data["version"],
             "scope": data["scope"],
             "installerType": data["installerType"],
+            "elevationRequirement": data["elevationRequirement"],
             "releaseDate": data["releaseDate"],
         }
     return result
