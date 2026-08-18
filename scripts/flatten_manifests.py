@@ -2,8 +2,9 @@
 import argparse
 import json
 import os
+import logging
+import inspect
 import sys
-
 import yaml
 
 try:
@@ -11,6 +12,49 @@ try:
 except ImportError:
     Version = None
     InvalidVersion = Exception
+
+
+class ColorFormatter(logging.Formatter):
+    COLORS = {
+        logging.DEBUG: "\033[2;37m",
+        logging.INFO: "\033[36m",
+        logging.WARNING: "\033[33m",
+        logging.ERROR: "\033[31m",
+        logging.CRITICAL: "\033[1;31m",
+    }
+    RESET = "\033[0m"
+    DIM = "\033[2m"
+
+    def format(self, record):
+        color = self.COLORS.get(record.levelno, "")
+        levelname = f"{color}{record.levelname:<7}{self.RESET}"
+        name = f"{self.DIM}{record.name}{self.RESET}"
+        ts = self.formatTime(record, "%H:%M:%S")
+        msg = record.getMessage()
+        return f"{self.DIM}{ts}{self.RESET} {levelname} {name} {msg}"
+
+
+def _setup_logging(debug=False):
+    handler = logging.StreamHandler(sys.stderr)
+    use_color = handler.stream.isatty()
+    if use_color:
+        handler.setFormatter(ColorFormatter())
+    else:
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+            datefmt="%H:%M:%S",
+        ))
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.addHandler(handler)
+    root.setLevel(logging.DEBUG if debug else logging.INFO)
+
+
+def _logger():
+    _cname = inspect.stack()[1].function
+    log = logging.getLogger(_cname)
+    log.propagate = True
+    return log
 
 
 def _version_key(version_str):
@@ -29,44 +73,13 @@ def _version_key(version_str):
 
 
 def _load_yaml(path):
+    log = _logger()
     try:
         with open(path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
     except Exception as e:
-        print(f"warn: failed to parse {path}: {e}", file=sys.stderr)
+        log.warning(f"failed to parse {path}: {e}")
         return None
-
-
-def _collapse(values):
-    if not values:
-        return None
-    if len(values) == 1:
-        return next(iter(values))
-    return sorted(values)
-
-
-def _extract_field(installer_doc, field):
-    if not installer_doc:
-        return None
-    top_value = installer_doc.get(field)
-    installers = installer_doc.get("Installers") or []
-    values = set()
-    for entry in installers:
-        if not isinstance(entry, dict):
-            continue
-        v = entry.get(field, top_value)
-        if v:
-            values.add(v)
-    if not values and top_value:
-        values.add(top_value)
-    return _collapse(values)
-
-
-def _extract_fields(installer_doc):
-    scope = _extract_field(installer_doc, "Scope")
-    installer_type = _extract_field(installer_doc, "InstallerType")
-    elevation = _extract_field(installer_doc, "ElevationRequirement")
-    return scope, installer_type, elevation
 
 
 def collect_installer_files(manifests_root):
@@ -77,6 +90,7 @@ def collect_installer_files(manifests_root):
 
 
 def flatten(manifests_root):
+    log = _logger()
     best = {}
     total = 0
     for path in collect_installer_files(manifests_root):
@@ -89,48 +103,33 @@ def flatten(manifests_root):
         if not package_id or package_version is None:
             continue
         package_version = str(package_version)
-        scope, installer_type, elevation = _extract_fields(doc)
-        release_date = doc.get("ReleaseDate")
-        if release_date is not None:
-            release_date = str(release_date)
 
         key = _version_key(package_version)
         existing = best.get(package_id)
         if existing is None or key > existing["_key"]:
-            best[package_id] = {
-                "_key": key,
-                "version": package_version,
-                "scope": scope,
-                "installerType": installer_type,
-                "elevationRequirement": elevation,
-                "releaseDate": release_date,
-            }
+            best[package_id] = {"_key": key, "doc": doc}
+            log.debug(f"{package_id}")
         if total % 5000 == 0:
-            print(f"...processed {total} installer manifests", file=sys.stderr)
-    print(f"done: {total} installer manifests, {len(best)} unique packages", file=sys.stderr)
-    result = {}
-    for package_id, data in best.items():
-        result[package_id] = {
-            "version": data["version"],
-            "scope": data["scope"],
-            "installerType": data["installerType"],
-            "elevationRequirement": data["elevationRequirement"],
-            "releaseDate": data["releaseDate"],
-        }
-    return result
+            log.info(f"...processed {total} installer manifests")
+    log.info(f"done: {total} installer manifests, {len(best)} unique packages")
+    return {package_id: data["doc"] for package_id, data in best.items()}
 
 
 def main():
     parser = argparse.ArgumentParser(description="Flatten winget-pkgs manifests into a JSON index.")
     parser.add_argument("manifests_root", help="Path to the winget-pkgs manifests/ directory")
     parser.add_argument("-o", "--output", default="manifest.json", help="Output JSON path")
+    parser.add_argument("--debug", action="store_true", help="Debug logging")
     args = parser.parse_args()
+
+    _setup_logging(args.debug)
+    log = _logger()
 
     result = flatten(args.manifests_root)
     with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=1, sort_keys=True)
+        json.dump(result, f, indent=1, sort_keys=True, default=str)
         f.write("\n")
-    print(f"wrote {args.output}", file=sys.stderr)
+    log.info(f"wrote {args.output}")
 
 
 if __name__ == "__main__":
