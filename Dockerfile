@@ -1,7 +1,8 @@
 FROM python:3.12-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates \
+    && apt-get install -y --no-install-recommends git git-lfs ca-certificates \
+    && git lfs install --skip-repo \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
