@@ -110,6 +110,27 @@ class ManifestStore:
             "InstallerTypes": types,
         }
 
+    def scope_info(self, package_id):
+        doc = self.get(package_id)
+        if doc is None:
+            return None
+        top_scope = doc.get("Scope")
+        installers = doc.get("Installers") or []
+        effective = sorted({str(i.get("Scope") or top_scope) for i in installers}) or ["None"]
+        return {
+            "PackageIdentifier": doc.get("PackageIdentifier"),
+            "Scopes": effective,
+            "SupportsMachine": "machine" in effective,
+        }
+
+    def scope_info_bulk(self, package_ids):
+        results = {}
+        for pid in package_ids:
+            info = self.scope_info(pid)
+            results[pid] = info if info is not None else {"error": "not found"}
+        return results
+
+
 
 class Handler(BaseHTTPRequestHandler):
     store = None
@@ -147,6 +168,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(404, {"error": f"no such package: {package_id}"})
                 return
             self._json(200, doc)
+
+        if rest == ["scopes"]:
+            ids_raw = (qs.get("ids") or [""])[0]
+            package_ids = [p for p in ids_raw.split(",") if p]
+            if not package_ids:
+                self._json(400, {"error": "missing ids param (comma-separated)"})
+                return
+            self._json(200, self.store.scope_info_bulk(package_ids))
+            return
+
             return
 
         if rest == ["search"]:
@@ -167,8 +198,29 @@ class Handler(BaseHTTPRequestHandler):
                 results = [self.store.summarize(pid) for pid in matches]
             self._json(200, {"query": query, "count": len(results), "results": results})
             return
+        self._json(404, {"error": "not found"})
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        parts = [p for p in parsed.path.split("/") if p]
+
+        if len(parts) == 2 and parts[0] == "v1" and parts[1] == "scopes":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length else b""
+            try:
+                payload = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self._json(400, {"error": "invalid json body"})
+                return
+            package_ids = payload.get("ids") or []
+            if not isinstance(package_ids, list) or not package_ids:
+                self._json(400, {"error": "expected {\"ids\": [...]}"})
+                return
+            self._json(200, self.store.scope_info_bulk(package_ids))
+            return
 
         self._json(404, {"error": "not found"})
+
 
 
 def main():
