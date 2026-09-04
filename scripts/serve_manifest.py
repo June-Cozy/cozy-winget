@@ -131,7 +131,6 @@ class ManifestStore:
         return results
 
 
-
 class Handler(BaseHTTPRequestHandler):
     store = None
 
@@ -168,6 +167,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(404, {"error": f"no such package: {package_id}"})
                 return
             self._json(200, doc)
+            return
 
         if rest == ["scopes"]:
             ids_raw = (qs.get("ids") or [""])[0]
@@ -176,8 +176,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "missing ids param (comma-separated)"})
                 return
             self._json(200, self.store.scope_info_bulk(package_ids))
-            return
-
             return
 
         if rest == ["search"]:
@@ -198,6 +196,7 @@ class Handler(BaseHTTPRequestHandler):
                 results = [self.store.summarize(pid) for pid in matches]
             self._json(200, {"query": query, "count": len(results), "results": results})
             return
+
         self._json(404, {"error": "not found"})
 
     def do_POST(self):
@@ -220,7 +219,6 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         self._json(404, {"error": "not found"})
-
 
 
 def main():
