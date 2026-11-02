@@ -144,8 +144,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        log.info(f"{self.client_address[0]} {self.command} {self.path} -> {status} ({len(body)}B)")
 
     def do_GET(self):
+        log.debug(f"{self.client_address[0]} GET {self.path}")
         parsed = urlparse(self.path)
         parts = [p for p in parsed.path.split("/") if p]
         qs = parse_qs(parsed.query)
@@ -206,6 +208,7 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts) == 2 and parts[0] == "v1" and parts[1] == "scopes":
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length else b""
+            log.debug(f"{self.client_address[0]} POST {self.path} body={body!r}")
             try:
                 payload = json.loads(body) if body else {}
             except json.JSONDecodeError:
