@@ -7,7 +7,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 
 class ColorFormatter(logging.Formatter):
@@ -237,6 +237,7 @@ def main():
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     log.info(f"serving on http://{args.host}:{args.port} (v1)")
+    log.debug("debug enabled: %s", args.debug)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
